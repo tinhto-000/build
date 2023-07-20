@@ -318,7 +318,7 @@ void file_query_posix_( file_info_t * const info )
     struct stat statbuf;
     char const * const pathstr = object_str( info->name );
     char const * const pathspec = *pathstr ? pathstr : ".";
-
+    
     if ( stat( pathspec, &statbuf ) < 0 )
     {
         info->is_file = 0;
@@ -328,8 +328,14 @@ void file_query_posix_( file_info_t * const info )
     }
     else
     {
+#ifndef __MVS__
         info->is_file = statbuf.st_mode & S_IFREG ? 1 : 0;
         info->is_dir = statbuf.st_mode & S_IFDIR ? 1 : 0;
+#else
+        // z/OS has different S_ISREG/S_ISDIR syntax
+        info->is_file = S_ISREG(statbuf.st_mode) ? 1 : 0;
+        info->is_dir = S_ISDIR(statbuf.st_mode) ? 1 : 0;
+#endif
         info->exists = 1;
 #if defined(_POSIX_VERSION) && _POSIX_VERSION >= 200809
 #if defined(OS_MACOSX)

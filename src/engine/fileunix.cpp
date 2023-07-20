@@ -103,6 +103,81 @@ struct ar_hdr  /* archive file member header - printable ascii */
 # include <ar.h>
 #endif
 
+#ifdef __MVS__
+
+// copied from: https://github.com/libuv/libuv/blob/v1.x/src/unix/os390-syscalls.c
+int scandir(const char* maindir, struct dirent*** namelist,
+            int (*filter)(const struct dirent*),
+            int (*compar)(const struct dirent**,
+            const struct dirent **)) {
+  struct dirent** nl;
+  struct dirent** nl_copy;
+  struct dirent* dirent;
+  unsigned count;
+  size_t allocated;
+  DIR* mdir;
+
+  nl = NULL;
+  count = 0;
+  allocated = 0;
+  mdir = opendir(maindir);
+  if (!mdir)
+    return -1;
+
+  for (;;) {
+    dirent = readdir(mdir);
+    if (!dirent)
+      break;
+    if (!filter || filter(dirent)) {
+      struct dirent* copy;
+      copy = (struct dirent*)malloc(sizeof(*copy));
+      if (!copy)
+        goto error;
+      memcpy(copy, dirent, sizeof(*copy));
+
+      nl_copy = (struct dirent**)realloc(nl, sizeof(*copy) * (count + 1));
+      if (nl_copy == NULL) {
+        free(copy);
+        goto error;
+      }
+
+      nl = nl_copy;
+      nl[count++] = copy;
+    }
+  }
+
+  qsort(nl, count, sizeof(struct dirent *),
+       (int (*)(const void *, const void *)) compar);
+
+  closedir(mdir);
+
+  *namelist = nl;
+  return count;
+
+error:
+  while (count > 0) {
+    dirent = nl[--count];
+    free(dirent);
+  }
+  free(nl);
+  closedir(mdir);
+  errno = ENOMEM;
+  return -1;
+}
+
+/*
+    The alphasort() and versionsort() functions can be used as the
+    comparison function compar().  The former sorts directory entries
+    using strcoll(3), the latter using strverscmp(3) on the strings
+    (*a)->d_name and (*b)->d_name.
+*/
+   
+int alphasort (const struct dirent **a, const struct dirent **b)
+{
+    return strcoll ((*a)->d_name, (*b)->d_name);
+}
+
+#endif
 
 /*
  * file_collect_dir_content_() - collects directory content information

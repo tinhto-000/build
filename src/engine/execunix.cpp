@@ -25,6 +25,9 @@
 #include <sys/times.h>
 #include <sys/wait.h>
 #include <poll.h>
+#ifdef __MVS__
+#include <unistd.h>
+#endif
 
 #if defined(sun) || defined(__sun)
     #include <wait.h>
@@ -380,6 +383,10 @@ static int read_descriptor( int i, int s )
         cmdtab[ i ].stream[ s ] ) ) )
     {
         buffer[ ret ] = 0;
+#ifdef __MVS__
+        // stream is coming in as EBCDIC, and we're ASCII here
+        __etoa(buffer);
+#endif
 
         /* Copy it to our output if appropriate */
         if ( ! ( cmdtab[ i ].flags & EXEC_CMD_QUIET ) )
@@ -526,7 +533,12 @@ void exec_wait()
                 int status;
                 int rstat;
                 timing_info time_info;
+#ifndef __MVS__
                 struct rusage cmd_usage;
+#else
+                // z/OS doesn't have wait4() yet, so not tracking usage
+                struct rusage cmd_usage = {0};
+#endif
 
                 /* We found a terminated child process - our search is done. */
                 finished = 1;
@@ -537,7 +549,19 @@ void exec_wait()
                     close_streams( i, ERR );
 
                 /* Reap the child and release resources. */
+#ifndef __MVS__
                 while ( ( pid = wait4( cmdtab[ i ].pid, &status, 0, &cmd_usage ) ) == -1 )
+#else
+                /*                
+                    Similarly, the following wait4() call:
+                        wait4(pid, wstatus, options, rusage);
+                    is equivalent to:
+                        waitpid(pid, wstatus, options);
+                */
+               
+                // z/OS doesn't have wait4() yet
+                while ( ( pid = waitpid( cmdtab[ i ].pid, &status, 0) ) == -1 )
+#endif
                     if ( errno != EINTR )
                         break;
                 if ( pid != cmdtab[ i ].pid )

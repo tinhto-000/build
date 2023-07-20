@@ -181,5 +181,6 @@ actions link bind LIBRARIES {
 }
 
 actions link.dll bind LIBRARIES {
-    "$(CONFIG_COMMAND)" -L"$(LINKPATH)" -o "$(<)" @($(<[1]:T).rsp:O=FC:<=@":>=":E=-Wl,-R$(_)-Wl,$(RPATH) $(SONAME_OPT)$(<[1]:D=) -shared $(START-GROUP) "$(>:T)" "$(LIBRARIES:T)" $(FINDLIBS-ST-PFX:T) -l$(FINDLIBS-ST:T) $(FINDLIBS-SA-PFX:T) -l$(FINDLIBS-SA:T) $(END-GROUP)) $(OPTIONS) $(USER_OPTIONS)
+    # z/OS does not do SONAME
+    "$(CONFIG_COMMAND)" -L"$(LINKPATH)" -o "$(<)" @($(<[1]:T).rsp:O=FC:<=@":>=":E=-Wl,-R$(_)-Wl,$(RPATH) -shared $(START-GROUP) "$(>:T)" "$(LIBRARIES:T)" $(FINDLIBS-ST-PFX:T) -l$(FINDLIBS-ST:T) $(FINDLIBS-SA-PFX:T) -l$(FINDLIBS-SA:T) $(END-GROUP)) $(OPTIONS) $(USER_OPTIONS)
 }
